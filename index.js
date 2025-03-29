@@ -179,14 +179,15 @@ app.post("/webhook", async (req, res) => {
           <div class="title">${safeTitle}</div>
           <div class="artist">${safeArtist}</div>
         </div>
-        <img src="file://${path.join(
-          ASSETS_DIR,
-          "plex-logo-full-color-on-white.png"
-        )}" class="plex-logo light-logo" />
-        <img src="file://${path.join(
-          ASSETS_DIR,
-          "plex-logo-full-color-on-black.png"
-        )}" class="plex-logo dark-logo" />
+<img src="file://${path.join(
+      ASSETS_DIR,
+      "plex-logo-full-color-on-white.webp"
+    )}" class="plex-logo light-logo" />
+<img src="file://${path.join(
+      ASSETS_DIR,
+      "plex-logo-full-color-on-black.webp"
+    )}" class="plex-logo dark-logo" />
+
       </body>
       </html>
     `;
