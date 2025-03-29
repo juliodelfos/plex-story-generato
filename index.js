@@ -34,7 +34,7 @@ app.get('/imagenes', async (req, res) => {
             body { font-family: sans-serif; padding: 2rem; background: #111; color: #fff; }
             img { max-width: 320px; border-radius: 12px; margin-bottom: 0.5rem; }
             .item { margin-bottom: 2rem; }
-            a { color: #00ccff; font-size: 0.9rem; word-break: break-all; }
+            a { color: #00ccff; font-size: 0.9rem; word-break: break-word; }
           </style>
         </head>
         <body>
@@ -63,7 +63,6 @@ app.post('/webhook', async (req, res) => {
 
   try {
     const multipartMatch = raw.match(/name="payload"\r?\nContent-Type: application\/json\r?\n\r?\n([\s\S]*?)\r?\n--/)
-
     if (multipartMatch) {
       payload = JSON.parse(multipartMatch[1])
     } else {
@@ -81,43 +80,47 @@ app.post('/webhook', async (req, res) => {
 
     const plexToken = process.env.PLEX_TOKEN
     const plexUrl = process.env.PLEX_SERVER_URL
-
-
     const thumbUrl = `${plexUrl}${thumb}?X-Plex-Token=${plexToken}`
+
     console.log('🌍 URL de la carátula:', thumbUrl)
 
-    const safeTitle = `${grandparentTitle}-${title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-    const fileName = `${Date.now()}-${safeTitle}.png`
+    const sanitize = (text, max = 40) =>
+      text?.length > max ? text.slice(0, max) + '…' : text || 'Desconocido'
+
+    const safeTitle = sanitize(title)
+    const safeArtist = sanitize(grandparentTitle)
+    const fileName = `${Date.now()}-${safeArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${safeTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`
     const outputFilePath = path.join(OUTPUT_DIR, fileName)
 
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 7000)
-
       const portadaResponse = await fetch(thumbUrl, { signal: controller.signal })
       clearTimeout(timeout)
 
       console.log('📥 Respuesta portada:', portadaResponse.status, portadaResponse.headers.get('content-type'))
 
       const contentType = portadaResponse.headers.get('content-type')
-
       if (!contentType?.startsWith('image/')) {
         console.warn(`⚠️ Thumb no es imagen válida (${contentType})`)
         return res.status(200).json({ ok: false, reason: 'Thumb no es imagen válida' })
       }
 
       const portadaBuffer = await portadaResponse.buffer()
+      const resizedCoverBuffer = await sharp(portadaBuffer)
+        .resize(900, 900, { fit: 'cover' })
+        .toBuffer()
 
       const svg = `
-        <svg width="1080" height="1920">
+        <svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg">
           <style>
-            .title { fill: white; font-size: 50px; font-weight: bold; }
-            .artist { fill: white; font-size: 36px; }
-            .plex { fill: #ffffff55; font-size: 24px; font-family: sans-serif; }
+            .title { fill: white; font-size: 64px; font-family: sans-serif; font-weight: bold; }
+            .artist { fill: white; font-size: 42px; font-family: sans-serif; }
+            .plex { fill: #ffffff55; font-size: 28px; font-family: sans-serif; }
             .highlight { fill: #ffcc00; }
           </style>
-          <text x="540" y="1400" text-anchor="middle" class="title">${title}</text>
-          <text x="540" y="1460" text-anchor="middle" class="artist">${grandparentTitle}</text>
+          <text x="540" y="1450" text-anchor="middle" class="title">${safeTitle}</text>
+          <text x="540" y="1520" text-anchor="middle" class="artist">${safeArtist}</text>
           <text x="540" y="1860" text-anchor="middle" class="plex">PL<tspan class="highlight">E</tspan>X</text>
         </svg>
       `
@@ -132,7 +135,7 @@ app.post('/webhook', async (req, res) => {
         }
       })
         .composite([
-          { input: portadaBuffer, top: 200, left: 140 },
+          { input: resizedCoverBuffer, top: 180, left: 90 },
           { input: svgBuffer, top: 0, left: 0 }
         ])
         .png()
