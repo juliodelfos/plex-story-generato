@@ -110,7 +110,7 @@ app.post("/webhook", async (req, res) => {
         stats.channels[1].mean +
         stats.channels[2].mean) /
       3;
-    const theme = brightness > 127 ? "dark" : "light"; // <- invertido aquí
+    const theme = brightness > 127 ? "light" : "dark";
 
     const sanitize = (text, max = 40) =>
       text?.length > max ? text.slice(0, max) + "…" : text || "Desconocido";
