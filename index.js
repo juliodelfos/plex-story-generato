@@ -114,13 +114,45 @@ app.post("/webhook", async (req, res) => {
       <head>
         <meta charset="UTF-8" />
         <style>
-          body { margin: 0; background: #000; font-family: sans-serif; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 1920px; width: 1080px; }
-          img.cover { width: 80%; border-radius: 1rem; }
-          .info { margin-top: 40px; text-align: center; }
-          .title { font-size: 64px; font-weight: bold; }
-          .artist { font-size: 42px; color: #ccc; }
-          .plex { font-size: 28px; color: #ffffff55; margin-top: 60px; }
-          .highlight { color: #ffcc00; }
+          body {
+            margin: 0;
+            height: 1920px;
+            width: 1080px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            font-family: sans-serif;
+            color: #fff;
+            background: url('file://${imageLocalPath}') no-repeat center center;
+            background-size: cover;
+            backdrop-filter: blur(40px);
+          }
+          .cover {
+            width: 80%;
+            border-radius: 1rem;
+            box-shadow: 0 0 60px rgba(255,255,255,0.5);
+          }
+          .info {
+            margin-top: 40px;
+            text-align: center;
+          }
+          .title {
+            font-size: 64px;
+            font-weight: bold;
+          }
+          .artist {
+            font-size: 48px;
+            color: #ccc;
+          }
+          .plex {
+            font-size: 56px;
+            color: #ffffff55;
+            margin-bottom: 60px;
+          }
+          .highlight {
+            color: #ffcc00;
+          }
         </style>
       </head>
       <body>
@@ -137,13 +169,11 @@ app.post("/webhook", async (req, res) => {
     const htmlPath = path.join(__dirname, "template.html");
     fs.writeFileSync(htmlPath, htmlContent);
 
-    console.log("🧭 Lanzando Chromium con puppeteer...");
     const browser = await puppeteer.launch({
       headless: chromium.headless,
       executablePath: await chromium.executablePath(),
       args: chromium.args,
     });
-
     const page = await browser.newPage();
     await page.setViewport({ width: 1080, height: 1920 });
     await page.goto(`file://${htmlPath}`, { waitUntil: "networkidle0" });
