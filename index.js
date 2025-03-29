@@ -272,62 +272,88 @@ app.post("/webhook", async (req, res) => {
       <meta charset="UTF-8" />
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+    
         html, body {
           width: 1080px;
           height: 1920px;
           font-family: sans-serif;
-          background: url("file://${blurredPath}") center center / cover no-repeat;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          flex-direction: column;
-          color: ${theme === "dark" ? "white" : "#111"};
+          overflow: hidden;
           position: relative;
         }
-  
+    
+        .background {
+          position: absolute;
+          inset: 0;
+          background: url("file://${blurredPath}") center center / cover no-repeat;
+          z-index: 0;
+        }
+    
+        .overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, ${theme === "dark" ? "0.3" : "0.1"});
+          backdrop-filter: blur(10px);
+          z-index: 1;
+        }
+    
+        .content {
+          position: relative;
+          z-index: 2;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+          padding: 40px;
+        }
+    
         .cover {
           width: 700px;
           border-radius: 32px;
           box-shadow: 0 0 60px 10px rgba(255, 255, 255, 0.3);
           margin-bottom: 64px;
         }
-  
+    
         .title {
           font-size: 64px;
           font-weight: bold;
-          text-align: center;
-          color: ${theme === "dark" ? "white" : "#111"};
-          text-shadow: 0 4px 8px rgba(0, 0, 0, ${
+          color: ${theme === "dark" ? "#fff" : "#111"};
+          text-shadow: 0 4px 8px rgba(0,0,0,${
             theme === "dark" ? "0.6" : "0.2"
           });
         }
-  
+    
         .artist {
           font-size: 48px;
           margin-top: 12px;
-          text-align: center;
           color: ${theme === "dark" ? "#ddd" : "#444"};
-          text-shadow: 0 2px 4px rgba(0, 0, 0, ${
+          text-shadow: 0 2px 4px rgba(0,0,0,${
             theme === "dark" ? "0.6" : "0.2"
           });
         }
-  
+    
         .plex-logo {
           position: absolute;
           bottom: 80px;
           width: 200px;
           opacity: 0.95;
+          z-index: 3;
         }
-  
+    
         .dark-logo { display: ${theme === "dark" ? "block" : "none"}; }
         .light-logo { display: ${theme === "dark" ? "none" : "block"}; }
       </style>
     </head>
     <body>
-      <img src="file://${imageLocalPath}" class="cover" alt="${safeArtist} - ${safeTitle}" />
-      <div class="title">${safeTitle}</div>
-      <div class="artist">${safeArtist}</div>
-  
+      <div class="background"></div>
+      <div class="overlay"></div>
+      <div class="content">
+        <img src="file://${imageLocalPath}" class="cover" alt="${safeArtist} - ${safeTitle}" />
+        <div class="title">${safeTitle}</div>
+        <div class="artist">${safeArtist}</div>
+      </div>
       <img src="file://${path.join(
         ASSETS_DIR,
         "plex-logo-full-color-on-white.webp"
@@ -338,7 +364,7 @@ app.post("/webhook", async (req, res) => {
       )}" class="plex-logo dark-logo" alt="Plex Logo" />
     </body>
     </html>
-  `;
+    `;
 
     const htmlPath = path.join(__dirname, "template.html");
     tempFiles.push(htmlPath);
