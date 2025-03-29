@@ -5,7 +5,8 @@ import { fileURLToPath } from "url";
 import { exec } from "child_process";
 import { subirACloudflareR2, listarArchivosEnR2 } from "./r2.js";
 import "dotenv/config";
-import puppeteer from "puppeteer";
+import puppeteer from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -132,9 +133,10 @@ app.post("/webhook", async (req, res) => {
     fs.writeFileSync(htmlPath, htmlContent);
 
     const browser = await puppeteer.launch({
-      headless: "new",
-      args: ["--no-sandbox"],
-    });
+      headless: chromium.headless,
+      executablePath: await chromium.executablePath(),
+      args: chromium.args
+    })
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1080, height: 1920 });
