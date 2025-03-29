@@ -12,7 +12,11 @@ export default async function handler(req, res) {
   if (payload.event === 'media.play' && payload.Metadata?.type === 'track') {
     const { title, grandparentTitle, thumb } = payload.Metadata
     const plexToken = process.env.PLEX_TOKEN
-    const plexUrl = process.env.PLEX_SERVER_URL
+    const plexUrl =
+  process.env.NODE_ENV === 'production'
+    ? 'https://192-168-0-27.c17dbc18c9b248b5b7ba8eb2e5961f57.plex.direct:32400'
+    : process.env.PLEX_SERVER_URL
+
     const thumbUrl = `${plexUrl}${thumb}?X-Plex-Token=${plexToken}`
     const fileName = `${Date.now()}.png`
     const tempFilePath = `/tmp/${fileName}`

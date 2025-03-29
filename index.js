@@ -89,7 +89,11 @@ app.post('/webhook', async (req, res) => {
   const { title, grandparentTitle, thumb } = payload.Metadata
   console.log(`🎧 Reproduciendo: ${grandparentTitle} - ${title}`)
 
-  const plexUrl = process.env.PLEX_SERVER_URL
+  const plexUrl =
+  process.env.NODE_ENV === 'production'
+    ? 'https://192-168-0-27.c17dbc18c9b248b5b7ba8eb2e5961f57.plex.direct:32400'
+    : process.env.PLEX_SERVER_URL
+
   const plexToken = process.env.PLEX_TOKEN
   const thumbUrl = `${plexUrl}${thumb}?X-Plex-Token=${plexToken}`
 
