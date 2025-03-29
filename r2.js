@@ -1,30 +1,25 @@
-// r2.js
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
-const fs = require('fs')
-const path = require('path')
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import fs from 'fs'
+import 'dotenv/config'
 
-// Configuración con tus credenciales de R2
 const r2 = new S3Client({
   region: 'auto',
-  endpoint: 'https://<TU-ID>.r2.cloudflarestorage.com',
+  endpoint: process.env.R2_ENDPOINT,
   credentials: {
-    accessKeyId: '<TU_ACCESS_KEY>',
-    secretAccessKey: '<TU_SECRET_KEY>'
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
   }
 })
 
-async function subirACloudflareR2(filePath, fileName) {
+export async function subirACloudflareR2(filePath, fileName) {
   const fileContent = fs.readFileSync(filePath)
 
   const command = new PutObjectCommand({
-    Bucket: 'plex-stories',
+    Bucket: process.env.R2_BUCKET_NAME,
     Key: fileName,
     Body: fileContent,
     ContentType: 'image/png'
   })
 
   await r2.send(command)
-  console.log(`Imagen subida a R2: ${fileName}`)
 }
-
-module.exports = { subirACloudflareR2 }
