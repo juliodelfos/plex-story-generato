@@ -6,6 +6,7 @@ import { subirACloudflareR2, listarArchivosEnR2 } from "./r2.js";
 import "dotenv/config";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
+import sharp from "sharp";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 const OUTPUT_DIR = path.join(__dirname, "stories");
+const ASSETS_DIR = path.join(__dirname, "assets");
 
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
 
@@ -96,6 +98,20 @@ app.post("/webhook", async (req, res) => {
     const imageLocalPath = path.join(__dirname, "cover.jpg");
     fs.writeFileSync(imageLocalPath, Buffer.from(buffer));
 
+    const blurredPath = path.join(__dirname, "blurred.jpg");
+    await sharp(imageLocalPath)
+      .resize(1080, 1920, { fit: "cover" })
+      .blur(30)
+      .toFile(blurredPath);
+
+    const stats = await sharp(blurredPath).stats();
+    const brightness =
+      (stats.channels[0].mean +
+        stats.channels[1].mean +
+        stats.channels[2].mean) /
+      3;
+    const theme = brightness > 127 ? "light" : "dark";
+
     const sanitize = (text, max = 40) =>
       text?.length > max ? text.slice(0, max) + "…" : text || "Desconocido";
 
@@ -114,54 +130,63 @@ app.post("/webhook", async (req, res) => {
       <head>
         <meta charset="UTF-8" />
         <style>
+          * { box-sizing: border-box; }
           body {
             margin: 0;
-            height: 1920px;
             width: 1080px;
+            height: 1920px;
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            justify-content: flex-end;
+            background: no-repeat center/cover url("file://${blurredPath}");
+            position: relative;
             font-family: sans-serif;
-            color: #fff;
-            background: url('file://${imageLocalPath}') no-repeat center center;
-            background-size: cover;
-            backdrop-filter: blur(40px);
+            color: white;
+          }
+          .content {
+            text-align: center;
+            z-index: 1;
           }
           .cover {
-            width: 80%;
-            border-radius: 1rem;
-            box-shadow: 0 0 60px rgba(255,255,255,0.5);
-          }
-          .info {
-            margin-top: 40px;
-            text-align: center;
+            width: 700px;
+            border-radius: 24px;
+            box-shadow: 0 0 60px 10px rgba(255, 255, 255, 0.3);
           }
           .title {
+            margin-top: 60px;
             font-size: 64px;
             font-weight: bold;
           }
           .artist {
+            margin-top: 12px;
             font-size: 48px;
-            color: #ccc;
+            color: #ddd;
           }
-          .plex {
-            font-size: 56px;
-            color: #ffffff55;
-            margin-bottom: 60px;
+          .plex-logo {
+            position: absolute;
+            bottom: 80px;
+            width: 200px;
+            opacity: 0.85;
           }
-          .highlight {
-            color: #ffcc00;
-          }
+          .dark-logo { display: none; }
+          body.light .dark-logo { display: block; }
+          body.light .light-logo { display: none; }
         </style>
       </head>
-      <body>
-        <img src="file://${imageLocalPath}" class="cover" />
-        <div class="info">
+      <body class="${theme}">
+        <div class="content">
+          <img src="file://${imageLocalPath}" class="cover" />
           <div class="title">${safeTitle}</div>
           <div class="artist">${safeArtist}</div>
         </div>
-        <div class="plex">PL<span class="highlight">E</span>X</div>
+        <img src="file://${path.join(
+          ASSETS_DIR,
+          "plex-logo-full-color-on-white.png"
+        )}" class="plex-logo light-logo" />
+        <img src="file://${path.join(
+          ASSETS_DIR,
+          "plex-logo-full-color-on-black.png"
+        )}" class="plex-logo dark-logo" />
       </body>
       </html>
     `;
@@ -186,6 +211,7 @@ app.post("/webhook", async (req, res) => {
     fs.unlinkSync(outputFilePath);
     fs.unlinkSync(htmlPath);
     fs.unlinkSync(imageLocalPath);
+    fs.unlinkSync(blurredPath);
 
     res.status(200).json({ ok: true });
   } catch (err) {
