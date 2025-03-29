@@ -110,7 +110,7 @@ app.post("/webhook", async (req, res) => {
         stats.channels[1].mean +
         stats.channels[2].mean) /
       3;
-    const theme = brightness > 127 ? "light" : "dark";
+    const theme = brightness > 127 ? "dark" : "light"; // <- invertido aquí
 
     const sanitize = (text, max = 40) =>
       text?.length > max ? text.slice(0, max) + "…" : text || "Desconocido";
@@ -121,7 +121,7 @@ app.post("/webhook", async (req, res) => {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")}-${safeTitle
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")}.png`;
+      .replace(/[^a-z0-9]+/g, "-")}.webp`;
     const outputFilePath = path.join(OUTPUT_DIR, fileName);
 
     const htmlContent = `
@@ -141,7 +141,7 @@ app.post("/webhook", async (req, res) => {
             background: no-repeat center/cover url("file://${blurredPath}");
             position: relative;
             font-family: sans-serif;
-            color: white;
+            color: ${theme === "dark" ? "white" : "#111"};
           }
           .content {
             text-align: center;
@@ -156,38 +156,37 @@ app.post("/webhook", async (req, res) => {
             margin-top: 60px;
             font-size: 64px;
             font-weight: bold;
+            color: ${theme === "dark" ? "white" : "#111"};
           }
           .artist {
             margin-top: 12px;
             font-size: 48px;
-            color: #ddd;
+            color: ${theme === "dark" ? "#ddd" : "#444"};
           }
           .plex-logo {
             position: absolute;
             bottom: 80px;
             width: 200px;
-            opacity: 0.85;
+            opacity: 0.95;
           }
-          .dark-logo { display: none; }
-          body.light .dark-logo { display: block; }
-          body.light .light-logo { display: none; }
+          .dark-logo { display: ${theme === "dark" ? "block" : "none"}; }
+          .light-logo { display: ${theme === "dark" ? "none" : "block"}; }
         </style>
       </head>
-      <body class="${theme}">
+      <body>
         <div class="content">
           <img src="file://${imageLocalPath}" class="cover" />
           <div class="title">${safeTitle}</div>
           <div class="artist">${safeArtist}</div>
         </div>
-<img src="file://${path.join(
-      ASSETS_DIR,
-      "plex-logo-full-color-on-white.webp"
-    )}" class="plex-logo light-logo" />
-<img src="file://${path.join(
-      ASSETS_DIR,
-      "plex-logo-full-color-on-black.webp"
-    )}" class="plex-logo dark-logo" />
-
+        <img src="file://${path.join(
+          ASSETS_DIR,
+          "plex-logo-full-color-on-white.png"
+        )}" class="plex-logo light-logo" />
+        <img src="file://${path.join(
+          ASSETS_DIR,
+          "plex-logo-full-color-on-black.png"
+        )}" class="plex-logo dark-logo" />
       </body>
       </html>
     `;
@@ -203,7 +202,7 @@ app.post("/webhook", async (req, res) => {
     const page = await browser.newPage();
     await page.setViewport({ width: 1080, height: 1920 });
     await page.goto(`file://${htmlPath}`, { waitUntil: "networkidle0" });
-    await page.screenshot({ path: outputFilePath });
+    await page.screenshot({ path: outputFilePath, type: "webp" });
     await browser.close();
 
     await subirACloudflareR2(outputFilePath, fileName);
