@@ -5,7 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import 'dotenv/config'
-import { subirACloudflareR2 } from './r2.js'
+import { subirACloudflareR2, listarArchivosEnR2 } from './r2.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -16,14 +16,71 @@ const OUTPUT_DIR = path.join(__dirname, 'stories')
 
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR)
 
-app.use(express.json())
+// Acepta texto crudo o JSON
+app.use(express.text({ type: '*/*' }))
 
 app.get('/status', (req, res) => {
   res.send('Servidor funcionando ✅')
 })
 
+app.get('/imagenes', async (req, res) => {
+  try {
+    const archivos = await listarArchivosEnR2()
+
+    const html = `
+      <html>
+        <head>
+          <title>Imágenes generadas</title>
+          <style>
+            body { font-family: sans-serif; padding: 2rem; background: #111; color: #fff; }
+            img { max-width: 320px; border-radius: 12px; margin-bottom: 0.5rem; }
+            .item { margin-bottom: 2rem; }
+            a { color: #00ccff; font-size: 0.9rem; word-break: break-all; }
+          </style>
+        </head>
+        <body>
+          <h1>🖼️ Imágenes generadas</h1>
+          ${archivos.map(nombre => `
+            <div class="item">
+              <img src="https://${process.env.WORKER_DOMAIN}/${nombre}" alt="${nombre}" />
+              <div><a href="https://${process.env.WORKER_DOMAIN}/${nombre}" target="_blank">${nombre}</a></div>
+            </div>
+          `).join('')}
+        </body>
+      </html>
+    `
+    res.send(html)
+  } catch (err) {
+    res.status(500).send('Error al listar archivos: ' + err.message)
+  }
+})
+
 app.post('/webhook', async (req, res) => {
-  const payload = req.body
+  let payload
+  const raw = req.body
+
+  console.log('🔍 Raw body recibido:\n', raw.slice(0, 500)) // solo para evitar spam
+
+  // Detectar si es multipart y extraer payload manualmente
+  const multipartMatch = raw.match(/name="payload"\r?\nContent-Type: application\/json\r?\n\r?\n([\s\S]*?)\r?\n--/)
+
+  if (multipartMatch) {
+    try {
+      payload = JSON.parse(multipartMatch[1])
+    } catch (e) {
+      console.error('❌ Fallo al parsear JSON desde multipart:', e.message)
+      return res.status(400).json({ ok: false, error: 'Payload inválido en multipart' })
+    }
+  } else {
+    try {
+      payload = JSON.parse(raw)
+    } catch (e) {
+      console.error('❌ Fallo al parsear JSON directo:', e.message)
+      return res.status(400).json({ ok: false, error: 'JSON inválido' })
+    }
+  }
+
+  console.log('📨 Webhook recibido:\n', JSON.stringify(payload, null, 2))
 
   if (payload.event !== 'media.play' || payload.Metadata?.type !== 'track') {
     return res.status(200).json({ ok: false, reason: 'No es una canción reproducida' })
@@ -36,13 +93,20 @@ app.post('/webhook', async (req, res) => {
   const plexToken = process.env.PLEX_TOKEN
   const thumbUrl = `${plexUrl}${thumb}?X-Plex-Token=${plexToken}`
 
-  // Nombre de archivo legible
   const safeTitle = `${grandparentTitle}-${title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
   const fileName = `${Date.now()}-${safeTitle}.png`
   const outputFilePath = path.join(OUTPUT_DIR, fileName)
 
   try {
-    const portadaBuffer = await fetch(thumbUrl).then(res => res.buffer())
+    const portadaResponse = await fetch(thumbUrl)
+    const contentType = portadaResponse.headers.get('content-type')
+
+    if (!contentType?.startsWith('image/')) {
+      console.warn(`⚠️ Thumb no es imagen válida (${contentType})`)
+      return res.status(200).json({ ok: false, reason: 'Thumb no es imagen válida' })
+    }
+
+    const portadaBuffer = await portadaResponse.buffer()
 
     const svg = `
       <svg width="1080" height="1920">
@@ -75,7 +139,7 @@ app.post('/webhook', async (req, res) => {
       .toFile(outputFilePath)
 
     await subirACloudflareR2(outputFilePath, fileName)
-    console.log(`✅ Imagen generada y subida a R2: ${fileName}`)
+    console.log(`✅ Imagen subida a R2: ${fileName}`)
 
     fs.unlinkSync(outputFilePath)
     res.status(200).json({ ok: true })

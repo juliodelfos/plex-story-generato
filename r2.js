@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import fs from 'fs'
 import 'dotenv/config'
 
@@ -12,14 +12,28 @@ const r2 = new S3Client({
 })
 
 export async function subirACloudflareR2(filePath, fileName) {
-  const fileContent = fs.readFileSync(filePath)
+  try {
+    const fileContent = fs.readFileSync(filePath)
 
-  const command = new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
-    Key: fileName,
-    Body: fileContent,
-    ContentType: 'image/png'
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: fileName,
+      Body: fileContent,
+      ContentType: 'image/png'
+    })
+
+    await r2.send(command)
+    console.log(`✅ Imagen subida a R2: ${fileName}`)
+  } catch (err) {
+    console.error('❌ Error al subir a R2:', err.message)
+  }
+}
+
+export async function listarArchivosEnR2() {
+  const command = new ListObjectsV2Command({
+    Bucket: process.env.R2_BUCKET_NAME
   })
 
-  await r2.send(command)
+  const data = await r2.send(command)
+  return (data.Contents || []).map(obj => obj.Key)
 }
