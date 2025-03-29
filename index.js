@@ -1,65 +1,10 @@
-import express from 'express'
-import fetch from 'node-fetch'
-import sharp from 'sharp'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import 'dotenv/config'
-import { subirACloudflareR2, listarArchivosEnR2 } from './r2.js'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-const app = express()
-const PORT = process.env.PORT || 3000
-const OUTPUT_DIR = path.join(__dirname, 'stories')
-
-if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR)
-
-// Acepta texto crudo o JSON
-app.use(express.text({ type: '*/*' }))
-
-app.get('/status', (req, res) => {
-  res.send('Servidor funcionando ✅')
-})
-
-app.get('/imagenes', async (req, res) => {
-  try {
-    const archivos = await listarArchivosEnR2()
-
-    const html = `
-      <html>
-        <head>
-          <title>Imágenes generadas</title>
-          <style>
-            body { font-family: sans-serif; padding: 2rem; background: #111; color: #fff; }
-            img { max-width: 320px; border-radius: 12px; margin-bottom: 0.5rem; }
-            .item { margin-bottom: 2rem; }
-            a { color: #00ccff; font-size: 0.9rem; word-break: break-all; }
-          </style>
-        </head>
-        <body>
-          <h1>🖼️ Imágenes generadas</h1>
-          ${archivos.map(nombre => `
-            <div class="item">
-              <img src="https://${process.env.WORKER_DOMAIN}/${nombre}" alt="${nombre}" />
-              <div><a href="https://${process.env.WORKER_DOMAIN}/${nombre}" target="_blank">${nombre}</a></div>
-            </div>
-          `).join('')}
-        </body>
-      </html>
-    `
-    res.send(html)
-  } catch (err) {
-    res.status(500).send('Error al listar archivos: ' + err.message)
-  }
-})
+// ... (código inicial igual que antes, sin cambios)
 
 app.post('/webhook', async (req, res) => {
   let payload
   const raw = req.body
 
-  console.log('🔍 Raw body recibido:\n', raw.slice(0, 500)) // acotado para no saturar
+  console.log('🔍 Raw body recibido:\n', raw.slice(0, 500))
 
   const multipartMatch = raw.match(/name="payload"\r?\nContent-Type: application\/json\r?\n\r?\n([\s\S]*?)\r?\n--/)
 
@@ -89,14 +34,13 @@ app.post('/webhook', async (req, res) => {
   console.log(`🎧 Reproduciendo: ${grandparentTitle} - ${title}`)
 
   const plexToken = process.env.PLEX_TOKEN
-
-  // 👇 Acá usamos el fallback según entorno
   const plexUrl =
     process.env.NODE_ENV === 'production'
       ? 'https://192-168-0-27.c17dbc18c9b248b5b7ba8eb2e5961f57.plex.direct:32400'
       : process.env.PLEX_SERVER_URL
 
   const thumbUrl = `${plexUrl}${thumb}?X-Plex-Token=${plexToken}`
+  console.log('🌍 URL de la carátula:', thumbUrl) // 👈 este es el log nuevo
 
   const safeTitle = `${grandparentTitle}-${title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
   const fileName = `${Date.now()}-${safeTitle}.png`
