@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const PORT = process.env.PORT || 3000
 const OUTPUT_DIR = path.join(__dirname, 'stories')
+const FONT_PATH = path.join(__dirname, 'assets', 'Inter-Regular.ttf')
 
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR)
 
@@ -111,14 +112,22 @@ app.post('/webhook', async (req, res) => {
         .resize(900, 900, { fit: 'cover' })
         .toBuffer()
 
+      const fontBase64 = fs.readFileSync(FONT_PATH).toString('base64')
+
       const svg = `
         <svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            .title { fill: white; font-size: 64px; font-family: sans-serif; font-weight: bold; }
-            .artist { fill: white; font-size: 42px; font-family: sans-serif; }
-            .plex { fill: #ffffff55; font-size: 28px; font-family: sans-serif; }
-            .highlight { fill: #ffcc00; }
-          </style>
+          <defs>
+            <style type="text/css">
+              @font-face {
+                font-family: 'Inter';
+                src: url(data:font/ttf;base64,${fontBase64}) format('truetype');
+              }
+              .title { fill: white; font-size: 64px; font-family: 'Inter'; font-weight: bold; }
+              .artist { fill: white; font-size: 42px; font-family: 'Inter'; }
+              .plex { fill: #ffffff55; font-size: 28px; font-family: 'Inter'; }
+              .highlight { fill: #ffcc00; }
+            </style>
+          </defs>
           <text x="540" y="1450" text-anchor="middle" class="title">${safeTitle}</text>
           <text x="540" y="1520" text-anchor="middle" class="artist">${safeArtist}</text>
           <text x="540" y="1860" text-anchor="middle" class="plex">PL<tspan class="highlight">E</tspan>X</text>
