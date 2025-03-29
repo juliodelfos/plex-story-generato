@@ -59,9 +59,8 @@ app.post('/webhook', async (req, res) => {
   let payload
   const raw = req.body
 
-  console.log('🔍 Raw body recibido:\n', raw.slice(0, 500)) // solo para evitar spam
+  console.log('🔍 Raw body recibido:\n', raw.slice(0, 500)) // acotado para no saturar
 
-  // Detectar si es multipart y extraer payload manualmente
   const multipartMatch = raw.match(/name="payload"\r?\nContent-Type: application\/json\r?\n\r?\n([\s\S]*?)\r?\n--/)
 
   if (multipartMatch) {
@@ -89,12 +88,14 @@ app.post('/webhook', async (req, res) => {
   const { title, grandparentTitle, thumb } = payload.Metadata
   console.log(`🎧 Reproduciendo: ${grandparentTitle} - ${title}`)
 
-  const plexUrl =
-  process.env.NODE_ENV === 'production'
-    ? 'https://192-168-0-27.c17dbc18c9b248b5b7ba8eb2e5961f57.plex.direct:32400'
-    : process.env.PLEX_SERVER_URL
-
   const plexToken = process.env.PLEX_TOKEN
+
+  // 👇 Acá usamos el fallback según entorno
+  const plexUrl =
+    process.env.NODE_ENV === 'production'
+      ? 'https://192-168-0-27.c17dbc18c9b248b5b7ba8eb2e5961f57.plex.direct:32400'
+      : process.env.PLEX_SERVER_URL
+
   const thumbUrl = `${plexUrl}${thumb}?X-Plex-Token=${plexToken}`
 
   const safeTitle = `${grandparentTitle}-${title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
