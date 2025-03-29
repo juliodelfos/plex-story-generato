@@ -2,10 +2,10 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { exec } from "child_process";
 import { subirACloudflareR2, listarArchivosEnR2 } from "./r2.js";
 import "dotenv/config";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,6 +91,11 @@ app.post("/webhook", async (req, res) => {
     console.log(`🎧 Reproduciendo: ${grandparentTitle} - ${title}`);
     console.log("🌍 URL de la carátula:", thumbUrl);
 
+    const response = await fetch(thumbUrl);
+    const buffer = await response.arrayBuffer();
+    const imageLocalPath = path.join(__dirname, "cover.jpg");
+    fs.writeFileSync(imageLocalPath, Buffer.from(buffer));
+
     const sanitize = (text, max = 40) =>
       text?.length > max ? text.slice(0, max) + "…" : text || "Desconocido";
 
@@ -103,7 +108,6 @@ app.post("/webhook", async (req, res) => {
       .replace(/[^a-z0-9]+/g, "-")}.png`;
     const outputFilePath = path.join(OUTPUT_DIR, fileName);
 
-    const htmlPath = path.join(__dirname, "template.html");
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="es">
@@ -120,7 +124,7 @@ app.post("/webhook", async (req, res) => {
         </style>
       </head>
       <body>
-        <img src="${thumbUrl}" class="cover" />
+        <img src="file://${imageLocalPath}" class="cover" />
         <div class="info">
           <div class="title">${safeTitle}</div>
           <div class="artist">${safeArtist}</div>
@@ -129,9 +133,17 @@ app.post("/webhook", async (req, res) => {
       </body>
       </html>
     `;
+
+    const htmlPath = path.join(__dirname, "template.html");
     fs.writeFileSync(htmlPath, htmlContent);
 
-    const browser = await puppeteer.launch({ headless: "new" });
+    console.log("🧭 Lanzando Chromium con puppeteer...");
+    const browser = await puppeteer.launch({
+      headless: chromium.headless,
+      executablePath: await chromium.executablePath(),
+      args: chromium.args,
+    });
+
     const page = await browser.newPage();
     await page.setViewport({ width: 1080, height: 1920 });
     await page.goto(`file://${htmlPath}`, { waitUntil: "networkidle0" });
@@ -143,6 +155,7 @@ app.post("/webhook", async (req, res) => {
 
     fs.unlinkSync(outputFilePath);
     fs.unlinkSync(htmlPath);
+    fs.unlinkSync(imageLocalPath);
 
     res.status(200).json({ ok: true });
   } catch (err) {
